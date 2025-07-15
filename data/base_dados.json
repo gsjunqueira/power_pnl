@@ -1,0 +1,32 @@
+{
+       "PB" : 100,
+
+        "DBAR": [
+            {"id": "B01"},
+            {"id": "B02"},
+            {"id": "B03"}
+        ],
+
+        "DGER_1": [
+            {"id": "GT01", "type": "thermal", "comb": "gas", "bus": "B01", "gmin": 0, "gmax": 250, "a": 16.97, "b": 5.3975, "c": 0.002176},
+            {"id": "GT02", "type": "thermal", "comb": "oil", "bus": "B02", "gmin": 0, "gmax": 157, "a": 10.86, "b": 19.355, "c": 0.01938},
+            {"id": "GT03", "type": "thermal", "comb": "gas", "bus": "B03", "gmin": 0, "gmax": 388, "a": 18.79, "b": 9.3116, "c": 0.001457}
+        ],
+
+        "DGER_2": [
+            {"id": "GT01", "type": "thermal", "comb": "oil", "bus": "B01", "gmin": 0, "gmax": 250, "a": 26.97, "b": 15.9120, "c": 0.08176},
+            {"id": "GT02", "type": "thermal", "comb": "oil", "bus": "B02", "gmin": 0, "gmax": 157, "a": 10.86, "b": 19.355, "c": 0.01938},
+            {"id": "GT03", "type": "thermal", "comb": "oil", "bus": "B03", "gmin": 0, "gmax": 388, "a": 20.79, "b": 25.66, "c": 0.01957}
+        ],
+
+        "DLIN": [
+            {"id": "LT01", "from_bus": "B01", "to_bus": "B02", "condutancia": 10, "suceptancia": 70, "pmax": 87},
+            {"id": "LT02", "from_bus": "B01", "to_bus": "B03", "condutancia": 10, "suceptancia": 100, "pmax": 200},
+            {"id": "LT03", "from_bus": "B02", "to_bus": "B03", "condutancia": 20, "suceptancia": 40, "pmax": 20}
+        ],
+
+        "DLOAD": [
+            {"id": "L02", "bus": "B02", "demand_p": 57},
+            {"id": "L03", "bus": "B03", "demand_p": 480}
+        ]
+    }

@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "power-pnl"
+version = "0.1.0"
+description = ""
+authors = ["gsjunqueira <giovanisjunqueira@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+sympy = "^1.14.0"
+numpy = "^2.3.1"
+scipy = "^1.16.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
