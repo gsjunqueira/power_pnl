@@ -32,7 +32,8 @@ class SymbolicModelBuilder:
         - restricoes: Agrega todas as restrições do modelo em uma única lista.
     """
 
-    def __init__(self, full_system: FullSystem, slack_id: str = None, barra_unica: bool = False):
+    def __init__(self, full_system: FullSystem, slack_id: str = None, barra_unica: bool = False,
+                 tipo: str ="cubica"):
         """
         Inicializa o construtor simbólico do modelo, criando as variáveis.
 
@@ -46,6 +47,7 @@ class SymbolicModelBuilder:
         self.slack_var = f"theta_{self.slack_id}"
         self.variables = self.variaveis()
         self._modo_barra_unica = barra_unica
+        self.tipo = tipo
 
     def variaveis(self) -> dict[str, sp.Symbol]:
         """
@@ -102,7 +104,7 @@ class SymbolicModelBuilder:
 
         return custo
 
-    def get_fob_cubica(self, solucao: dict[sp.Symbol, float]) -> float:
+    def get_fob(self, solucao: dict[sp.Symbol, float]) -> float:
         """
         Avalia numericamente a função objetivo com base na solução em pu,
         convertendo as potências para MW antes da avaliação.
@@ -115,7 +117,7 @@ class SymbolicModelBuilder:
             float: Valor da FOB com potências em MW.
         """
         pb = self.full_system.power.pb
-        fob_expr = self.fob_cubica()
+        fob_expr = self.fob()
         subs = {}
 
         for var in self.variables.values():
@@ -128,34 +130,7 @@ class SymbolicModelBuilder:
 
         return float(fob_expr.subs(subs).evalf())
 
-
-    def get_fob_quadratica(self, solucao: dict[sp.Symbol, float]) -> float:
-        """
-        Avalia numericamente a função objetivo com base na solução em pu,
-        convertendo as potências para MW antes da avaliação.
-
-        Args:
-            solucao (dict[sp.Symbol, float]): Dicionário com variáveis
-            simbólicas e seus valores em pu.
-
-        Returns:
-            float: Valor da FOB com potências em MW.
-        """
-        pb = self.full_system.power.pb
-        fob_expr = self.fob_quadratica()
-        subs = {}
-
-        for var in self.variables.values():
-            if var in solucao:
-                nome = str(var)
-                if nome.startswith("P_"):
-                    subs[var] = solucao[var] * pb
-                else:
-                    subs[var] = solucao[var]
-
-        return float(fob_expr.subs(subs).evalf())
-
-    def fob_cubica(self) -> sp.Expr:
+    def fob(self) -> sp.Expr:
         """
         Calcula a função objetivo como a integral do custo marginal de cada gerador.
 
@@ -173,29 +148,7 @@ class SymbolicModelBuilder:
                     raise ValueError(f"Variável de geração P_{g.id} não encontrada.")
 
                 custo_marginal = self._custo_gerador(g, p)
-                fob += sp.integrate(custo_marginal, p)
-
-        return fob
-
-    def fob_quadratica(self) -> sp.Expr:
-        """
-        Calcula a função objetivo como a integral do custo marginal de cada gerador.
-
-        FOB = ∑_g ∫(a_g P^2 + b_g P + c_g) dP = ∑_g (a_g/3 * P^3 + b_g/2 * P^2 + c_g * P)
-
-        Returns:
-            sp.Expr: Expressão simbólica da função objetivo (FOB).
-        """
-        fob = 0
-
-        for bus in self.full_system.power.buses:
-            for g in getattr(bus, "generators", []):
-                p = self.variables.get(f"P_{g.id}")
-                if p is None:
-                    raise ValueError(f"Variável de geração P_{g.id} não encontrada.")
-
-                custo_marginal = self._custo_gerador(g, p)
-                fob += custo_marginal
+                fob += sp.integrate(custo_marginal, p) if self.tipo == "cubica" else custo_marginal
 
         return fob
 

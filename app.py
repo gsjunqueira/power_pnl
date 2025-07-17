@@ -102,11 +102,11 @@ def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = 
         O resultado é salvo no arquivo especificado e impresso no terminal;
         a função não retorna nenhum valor diretamente.
     """
-    sm = SymbolicModelBuilder(sistema)
+    sm = SymbolicModelBuilder(sistema, tipo=f_obj)
     modelo = SymbolicModel()
     if single_bus:
         sm.ativar_barra_unica()
-    modelo.obj = minimizar(sm.fob_cubica() if f_obj == "cubica" else sm.fob_quadratica())
+    modelo.obj = minimizar(sm.fob())
     modelo.constraints = sm.restricoes()
     x0_1 = chute_inicial(variables=sm.variaveis(), sistema=sistema)
 
@@ -118,7 +118,7 @@ def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = 
     t_hessiana = resultado["hessiana"]
     solucao_dict = {str(var): val.evalf() if hasattr(val, "evalf") else float(val)
                     for var, val in resultado["solucao"].items()}
-    fob = sm.get_fob_cubica(solucao) if f_obj == "cubica" else sm.get_fob_quadratica(solucao)
+    fob = sm.get_fob(solucao)
     custo_operacional = sm.custo_operacional(solucao_dict)
 
     kkt = KKTChecker(
