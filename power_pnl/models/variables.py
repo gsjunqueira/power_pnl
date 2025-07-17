@@ -33,10 +33,10 @@ class VariableSet:
             n_ineq_dn (int): Número de restrições ≥.
             prefix_decision (str): Prefixo das variáveis de decisão (default = 'x').
         """
-        self.x = sp.symbols(f'{prefix_decision}1:{n_decision+1}')
-        self.lmd = sp.symbols(f'lambda1:{n_eq+1}') if n_eq > 0 else ()
-        self.pi_up = sp.symbols(f'pi_up1:{n_ineq_up+1}') if n_ineq_up > 0 else ()
-        self.pi_dn = sp.symbols(f'pi_dn1:{n_ineq_dn+1}') if n_ineq_dn > 0 else ()
+        self.x = sp.symbols(f'{prefix_decision}1:{n_decision+1}', real=True)
+        self.lmd = sp.symbols(f'lambda1:{n_eq+1}', real=True) if n_eq > 0 else ()
+        self.pi_up = sp.symbols(f'pi_up1:{n_ineq_up+1}', real=True) if n_ineq_up > 0 else ()
+        self.pi_dn = sp.symbols(f'pi_dn1:{n_ineq_dn+1}', real=True) if n_ineq_dn > 0 else ()
         self.n_ineq = n_ineq_up + n_ineq_dn
         self.s = sp.symbols(f's1:{self.n_ineq+1}') if self.n_ineq > 0 else ()
 

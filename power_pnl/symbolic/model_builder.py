@@ -32,7 +32,7 @@ class SymbolicModelBuilder:
         - restricoes: Agrega todas as restrições do modelo em uma única lista.
     """
 
-    def __init__(self, full_system: FullSystem, slack_id: str = None):
+    def __init__(self, full_system: FullSystem, slack_id: str = None, barra_unica: bool = False):
         """
         Inicializa o construtor simbólico do modelo, criando as variáveis.
 
@@ -45,6 +45,7 @@ class SymbolicModelBuilder:
         self.slack_id = slack_id
         self.slack_var = f"theta_{self.slack_id}"
         self.variables = self.variaveis()
+        self._modo_barra_unica = barra_unica
 
     def variaveis(self) -> dict[str, sp.Symbol]:
         """
@@ -75,9 +76,12 @@ class SymbolicModelBuilder:
         """
         restricoes = []
         restricoes += self._limite_geracao()
-        restricoes += self._limite_fluxo()
-        restricoes += self._balanco_potencia()
-        restricoes += self._limite_angulo()
+        if not self._modo_barra_unica:
+            restricoes += self._limite_fluxo()
+            restricoes += self._balanco_potencia()
+            restricoes += self._limite_angulo()
+        else:
+            restricoes += self._balanco_barra_unica()
         return restricoes
 
     def custo_operacional(self, solucao: dict) -> float:
@@ -98,7 +102,7 @@ class SymbolicModelBuilder:
 
         return custo
 
-    def get_fob(self, solucao: dict[sp.Symbol, float]) -> float:
+    def get_fob_cubica(self, solucao: dict[sp.Symbol, float]) -> float:
         """
         Avalia numericamente a função objetivo com base na solução em pu,
         convertendo as potências para MW antes da avaliação.
@@ -111,7 +115,7 @@ class SymbolicModelBuilder:
             float: Valor da FOB com potências em MW.
         """
         pb = self.full_system.power.pb
-        fob_expr = self.funcao_objetivo()
+        fob_expr = self.fob_cubica()
         subs = {}
 
         for var in self.variables.values():
@@ -124,7 +128,34 @@ class SymbolicModelBuilder:
 
         return float(fob_expr.subs(subs).evalf())
 
-    def funcao_objetivo(self) -> sp.Expr:
+
+    def get_fob_quadratica(self, solucao: dict[sp.Symbol, float]) -> float:
+        """
+        Avalia numericamente a função objetivo com base na solução em pu,
+        convertendo as potências para MW antes da avaliação.
+
+        Args:
+            solucao (dict[sp.Symbol, float]): Dicionário com variáveis
+            simbólicas e seus valores em pu.
+
+        Returns:
+            float: Valor da FOB com potências em MW.
+        """
+        pb = self.full_system.power.pb
+        fob_expr = self.fob_quadratica()
+        subs = {}
+
+        for var in self.variables.values():
+            if var in solucao:
+                nome = str(var)
+                if nome.startswith("P_"):
+                    subs[var] = solucao[var] * pb
+                else:
+                    subs[var] = solucao[var]
+
+        return float(fob_expr.subs(subs).evalf())
+
+    def fob_cubica(self) -> sp.Expr:
         """
         Calcula a função objetivo como a integral do custo marginal de cada gerador.
 
@@ -143,6 +174,28 @@ class SymbolicModelBuilder:
 
                 custo_marginal = self._custo_gerador(g, p)
                 fob += sp.integrate(custo_marginal, p)
+
+        return fob
+
+    def fob_quadratica(self) -> sp.Expr:
+        """
+        Calcula a função objetivo como a integral do custo marginal de cada gerador.
+
+        FOB = ∑_g ∫(a_g P^2 + b_g P + c_g) dP = ∑_g (a_g/3 * P^3 + b_g/2 * P^2 + c_g * P)
+
+        Returns:
+            sp.Expr: Expressão simbólica da função objetivo (FOB).
+        """
+        fob = 0
+
+        for bus in self.full_system.power.buses:
+            for g in getattr(bus, "generators", []):
+                p = self.variables.get(f"P_{g.id}")
+                if p is None:
+                    raise ValueError(f"Variável de geração P_{g.id} não encontrada.")
+
+                custo_marginal = self._custo_gerador(g, p)
+                fob += custo_marginal
 
         return fob
 
@@ -311,3 +364,46 @@ class SymbolicModelBuilder:
             restricoes.append(Le(theta, theta_max))
 
         return restricoes
+
+    def ativar_barra_unica(self):
+        """
+        Ativa o modo de modelagem como sistema de barra única (sem rede).
+
+        Neste modo:
+        - Todas as barras são tratadas como interligadas diretamente;
+        - Variáveis de ângulo (theta) e restrições de fluxo de potência são ignoradas;
+        - A topologia da rede é desconsiderada;
+        - Apenas uma equação global de balanço de potência é utilizada.
+
+        Útil para testes simplificados, análise sem rede ou quando se deseja
+        isolar o efeito da geração e da carga sem a influência da malha elétrica.
+        """
+        self._modo_barra_unica = True
+
+    def _balanco_barra_unica(self) -> list[sp.Equality]:
+        """
+        Cria uma única equação de balanço de potência ignorando a topologia da rede,
+        assumindo todas as barras interligadas.
+
+        Returns:
+            list[sp.Equality]: [geração total + déficit total = carga total]
+        """
+        geracao_total = 0
+        carga_total = 0
+        deficit_total = 0
+
+        periodos = sorted({l.period for b in self.full_system.power.buses
+                        for l in getattr(b, "loads", [])})
+
+        for barra in self.full_system.power.buses:
+            for g in getattr(barra, "generators", []):
+                geracao_total += self.variables[f"P_{g.id}"]
+
+            for l in getattr(barra, "loads", []):
+                carga_total += l.demand_p
+
+            for t in periodos:
+                dvar = self.variables.get(f"D_{barra.id}_t{t}", 0)
+                deficit_total += dvar
+
+        return [sp.Eq(geracao_total + deficit_total, carga_total)]

@@ -12,23 +12,38 @@ Autor: Giovani Santiago Junqueira
 
 __author__ = "Giovani Santiago Junqueira"
 
-from sympy import Symbol, diff, im
+from typing import List, Tuple
+from sympy import Symbol, diff, im, Mul, Expr, solve
 
 class KKTChecker:
     """
     Classe para verificar as condições de otimalidade de Karush-Kuhn-Tucker (KKT)
     para problemas de otimização com restrições.
 
-    As condições verificadas são:
-        1. Estacionariedade
-        2. Primalidade das folgas
-        3. Dualidade (multiplicadores reais)
-        4. Positividade dos multiplicadores de desigualdade
-        5. Positividade das variáveis de folga (opcional, caso seja modelado com s²)
-        6. Complementaridade entre multiplicadores e folgas
+    As 6 condições teóricas verificadas são:
 
-    A entrada esperada é a Lagrangeana simbólica completa e a solução contendo
-    todas as variáveis (primal, dual, e folgas) em um único dicionário.
+        1. Estacionariedade:
+            ∂L/∂x_j = 0 (ou ≤ 0 / ≥ 0 no caso de fronteira)
+
+        2. Complementaridade primal:
+            x_j * ∂L/∂x_j = 0
+
+        3. Satisfação das restrições:
+            g_i(x*) - b_i {≤, ≥, =} 0
+
+        4. Complementaridade dual:
+            λ_i * (g_i(x*) - b_i) = 0
+
+        5. Domínio das variáveis:
+            x_j^{min} ≤ x_j^* ≤ x_j^{max}
+
+        6. Validade dos multiplicadores:
+            - Para **igualdade**: λ_i ∈ ℝ
+            - Para **desigualdade**: λ_i ≥ 0 e ∈ ℝ
+
+    A entrada esperada é a Lagrangeana simbólica já ajustada com os sinais corretos
+    (i.e., sem necessidade de reidentificar os tipos das restrições), e um dicionário 
+    com todas as variáveis (primal, dual e folgas).
 
     A classe foi projetada para uso simbólico com SymPy.
     """
@@ -46,7 +61,7 @@ class KKTChecker:
         self.lagrangeana = lagrangeana
         self.solucao = solucao
         self.tol = tol
-
+        self.restricoes = self._extrair_restricoes()
         # Extração automática das variáveis por tipo
         self.variaveis = {k: v for k, v in solucao.items() if not any(p in str(k)
                                                 for p in ["lambda", "pi_up", "pi_dn", "s"])}
@@ -56,6 +71,7 @@ class KKTChecker:
             "pi_dn": self._extrair_lista("pi_dn"),
             "s": self._extrair_lista("s"),
         }
+        self.resultado_kkt: List[str] = []
 
     def _extrair_lista(self, prefixo):
         """
@@ -71,6 +87,33 @@ class KKTChecker:
         itens = [(int(str(k)[len(prefixo):]), v) for k, v in self.solucao.items()
                  if str(k).startswith(prefixo)]
         return [v for _, v in sorted(itens)]
+
+
+    def _extrair_restricoes(self) -> List[Tuple[Symbol, Expr]]:
+        """
+        Extrai as restrições da Lagrangeana no formato (multiplicador, expressão).
+        Remove termos com variáveis de folga (ex: s**2), para recuperar a restrição original.
+        
+        Returns:
+            List[Tuple[Symbol, Expr]]: Lista de pares (multiplicador, expressão sem s²).
+        """
+        restricoes = []
+
+        for termo in self.lagrangeana.args:  # termo por termo do somatório da Lagrangeana
+            if isinstance(termo, Mul) and len(termo.args) == 2:
+                mult, expr = termo.args
+
+                # Garante que mult é Symbol (ex: lambda1, pi_up1, etc.)
+                if isinstance(mult, Symbol):
+                    # Remove s_k**2, se houver
+                    expr_sem_s = expr
+                    for subtermo in expr.args:
+                        if (subtermo.is_Pow and isinstance(subtermo.base, Symbol) and
+                            str(subtermo.base).startswith('s')):
+                            expr_sem_s -= subtermo
+                    restricoes.append((mult, expr_sem_s))
+
+        return restricoes
 
     def _subs_mults(self):
         """
@@ -98,93 +141,168 @@ class KKTChecker:
             derivada = diff(self.lagrangeana, var)
             valor = derivada.evalf(subs=self.solucao)
             if abs(valor) > self.tol:
-                print(f"[KKT] Estacionariedade falhou para {var}: ∂L/∂{var} = {valor}")
+                mensagem = f"[KKT] Estacionariedade falhou para {var}: ∂L/∂{var} = {valor}"
+                print(mensagem)
+                self.resultado_kkt.append(mensagem)
                 return False
         return True
 
-    def verificar_primalidade_folgas(self):
+    def verificar_complementaridade_primal(self) -> bool:
         """
-        Verifica se os valores das variáveis de folga são reais (sem parte imaginária
-        significativa).
+        Verifica a Condição 2 de KKT: complementaridade primal.
+        Para cada variável primal x_j, verifica se:
+            x_j * ∂L/∂x_j ≈ 0
 
         Returns:
-            bool: True se todas as folgas forem reais dentro da tolerância; False caso contrário.
+            bool: True se todas forem satisfeitas, False se alguma violar.
         """
-        for i, s in enumerate(self.multipliers["s"]):
-            if abs(im(s).evalf()) > self.tol:
-                print(f"[KKT] Primalidade (folga s{i+1}) tem parte imaginária não nula: {s}")
+        for var in self.variaveis:
+            derivada = diff(self.lagrangeana, var)
+            deriv_val = derivada.evalf(subs=self.solucao)
+            var_val = self.solucao[var]
+
+            produto = deriv_val * var_val
+            if abs(produto) > self.tol:
+                mensagem = (f"[KKT] Complementaridade primal violada: {var} * dL/d{var} "
+                      "= {var_val} * {deriv_val} = {produto}")
+                print(mensagem)
+                self.resultado_kkt.append(mensagem)
                 return False
+
         return True
 
-    def verificar_dualidade(self):
+    def verificar_satisfacao_restricoes(self) -> bool:
         """
-        Verifica se os multiplicadores de Lagrange são reais (sem parte imaginária significativa).
+        Verifica a Condição 3 de KKT: satisfação das restrições.
+        Cada restrição deve estar satisfeita no ponto ótimo:
+            - Igualdade: g(x*) == 0
+            - Desigualdade ≥ (pi_dn): g(x*) ≥ 0
+            - Desigualdade ≤ (pi_up): g(x*) ≤ 0
 
         Returns:
-            bool: True se todos os multiplicadores forem reais; False caso contrário.
+            bool: True se todas as restrições forem satisfeitas.
         """
-        for nome in ["lambda", "pi_up", "pi_dn"]:
-            for i, val in enumerate(self.multipliers[nome]):
-                if abs(im(val).evalf()) > self.tol:
-                    print(f"[KKT] Dualidade (multiplicador {nome}{i+1}) tem parte imaginária não nula: {val}")
+        for mult, expr in self.restricoes:
+            valor = expr.evalf(subs=self.solucao)
+
+            if str(mult).startswith("lambda"):
+                if abs(valor) > self.tol:
+                    mensagem = f"[KKT] Igualdade não satisfeita: {mult} → {expr} = {valor} ≠ 0"
+                    print(mensagem)
+                    self.resultado_kkt.append(mensagem)
                     return False
+
+            elif str(mult).startswith("pi_dn"):
+                if valor < -self.tol:
+                    mensagem = f"[KKT] Desigualdade (≥) violada: {mult} → {expr} = {valor} < 0"
+                    print(mensagem)
+                    self.resultado_kkt.append(mensagem)
+                    return False
+
+            elif str(mult).startswith("pi_up"):
+                if valor > self.tol:
+                    mensagem = f"[KKT] Desigualdade (≤) violada: {mult} → {expr} = {valor} > 0"
+                    print(mensagem)
+                    self.resultado_kkt.append(mensagem)
+                    return False
+
         return True
 
-    def verificar_positividade_duais(self):
+    def verificar_complementaridade_dual(self) -> bool:
         """
-        Verifica a condição de não negatividade dos multiplicadores associados às restrições de
-        desigualdade.
+        Verifica a Condição 4 de KKT: complementaridade dual.
+        Para cada restrição (de desigualdade), verifica se:
+            λ_i * (g_i(x*) - b_i) ≈ 0
 
         Returns:
-            bool: True se todos os multiplicadores forem ≥ 0 (dentro da tolerância); False caso
-            contrário.
+            bool: True se todas forem satisfeitas, False se alguma violar.
         """
+
+        for mult, expr in self.restricoes:
+
+            val_mult = self.solucao[mult]
+            val_expr = expr.evalf(subs=self.solucao)
+
+            produto = val_mult * val_expr
+            if abs(produto) > self.tol:
+                mensagem = f"[KKT] Complementaridade dual violada: {mult} * ({expr}) = {produto}"
+                print(mensagem)
+                self.resultado_kkt.append(mensagem)
+                return False
+
+        return True
+
+    def verificar_dominio_primal(self) -> bool:
+        """
+        Verifica a Condição 5 de KKT: domínio das variáveis.
+        Considera apenas restrições simples (1 variável por vez), do tipo:
+            - pi_dn: x >= xmin
+            - pi_up: x <= xmax
+
+        Returns:
+            bool: True se todas as restrições de domínio forem satisfeitas.
+        """
+
+        for mult, expr in self.restricoes:
+            var_set = expr.free_symbols
+
+            if len(var_set) != 1:
+                continue
+
+            var = var_set.pop()
+            expr_val = expr.evalf(subs=self.solucao)
+
+            if str(mult).startswith("pi_up") and expr_val > self.tol:
+                limite = solve(expr, var)[0]
+                mensagem = f"[KKT] Domínio violado: {var} → {var} > {limite}"
+                print(mensagem)
+                self.resultado_kkt.append(mensagem)
+                return False
+            elif str(mult).startswith("pi_dn") and expr_val < -self.tol:
+                limite = solve(expr, var)[0]
+                mensagem = f"[KKT] Domínio violado: {var} → {var} < {limite}"
+                print(mensagem)
+                self.resultado_kkt.append(mensagem)
+                return False
+
+        return True
+
+    def verificar_dominio_multiplicadores(self) -> bool:
+        """
+        Verifica a Condição 6 de KKT: validade dos multiplicadores.
+        
+        - lambda (igualdade): deve ser real (parte imaginária nula).
+        - pi_up, pi_dn (desigualdades): devem ser reais e ≥ 0.
+
+        Returns:
+            bool: True se todos os multiplicadores forem válidos; False caso contrário.
+        """
+        # Verifica os λ (igualdade)
+        for i, val in enumerate(self.multipliers["lambda"]):
+            if abs(im(val)) > self.tol:
+                mensagem = f"[KKT] Multiplicador λ{i+1} inválido: parte imaginária {val} ≠ 0"
+                print(mensagem)
+                self.resultado_kkt.append(mensagem)
+                return False
+
+        # Verifica os π (desigualdades)
         for nome in ["pi_up", "pi_dn"]:
             for i, val in enumerate(self.multipliers[nome]):
-                if val < -self.tol:
-                    print(f"[KKT] Violação de positividade: {nome}{i+1} = {val} < 0")
+                if abs(im(val)) > self.tol:
+                    mensagem = (f"[KKT] Multiplicador {nome}{i+1} inválido: parte imaginária"
+                                " {val} ≠ 0")
+                    print(mensagem)
+                    self.resultado_kkt.append(mensagem)
                     return False
+                if val < -self.tol:
+                    mensagem = f"[KKT] Multiplicador {nome}{i+1} inválido: valor negativo {val} < 0"
+                    print(mensagem)
+                    self.resultado_kkt.append(mensagem)
+                    return False
+
         return True
 
-    def verificar_positividade_folgas(self):
-        """
-        [Ignorada se folgas modeladas com s²] 
-        Verifica se as variáveis de folga são não-negativas.
-
-        Returns:
-            bool: True sempre, pois a verificação foi desativada.
-        """
-        # for i, s in enumerate(self.multipliers["s"]):
-        #     if abs(im(s).evalf()) > self.tol:
-        #         continue
-        #     if re(s).evalf() < -self.tol:
-        #         print(f"[KKT] Violação de positividade (s{i+1}): {s} < 0")
-        #         return False
-        return True
-
-    def verificar_complementaridade(self):
-        """
-        Verifica a condição de complementaridade: para cada par (pi, s), o produto deve ser zero.
-
-        Returns:
-            bool: True se todos os produtos pi * s forem menores que a tolerância; False caso
-            contrário.
-        """
-        total_up = len(self.multipliers["pi_up"])
-        for i in range(total_up):
-            prod = self.multipliers["pi_up"][i] * self.multipliers["s"][i]
-            if abs(prod) > self.tol:
-                print(f"[KKT] Complementaridade falhou: pi_up{i+1} * s{i+1} = {prod}")
-                return False
-        for i in range(len(self.multipliers["pi_dn"])):
-            j = i + total_up
-            prod = self.multipliers["pi_dn"][i] * self.multipliers["s"][j]
-            if abs(prod) > self.tol:
-                print(f"[KKT] Complementaridade falhou: pi_dn{i+1} * s{j+1} = {prod}")
-                return False
-        return True
-
-    def verificar_todas(self):
+    def verificar_todas(self) -> tuple[bool, list[str]]:
         """
         Executa todas as verificações das condições de otimalidade de KKT.
 
@@ -192,16 +310,21 @@ class KKTChecker:
             bool: True se todas as condições forem satisfeitas; False caso contrário.
         """
         checks = [
-            self.verificar_estacionariedade(),
-            self.verificar_primalidade_folgas(),
-            self.verificar_dualidade(),
-            self.verificar_positividade_duais(),
-            self.verificar_positividade_folgas(),
-            self.verificar_complementaridade()
+            self.verificar_estacionariedade(), # Condição 1
+            self.verificar_complementaridade_primal(), # Condição 2
+            self.verificar_satisfacao_restricoes(), # Condição 3
+            self.verificar_complementaridade_dual(), # Condição 4
+            self.verificar_dominio_primal(), # Condição 5
+            self.verificar_dominio_multiplicadores(), # Condição 6
+
         ]
         if all(checks):
-            print("✅ Todas as condições de KKT foram satisfeitas.\n")
-            return True
+            mensagem = "✅ Todas as condições de KKT foram satisfeitas.\n"
+            print(mensagem)
+            self.resultado_kkt.append(mensagem)
+            return True, self.resultado_kkt
         else:
-            print("❌ Solução viola alguma condição de KKT.\n")
-            return False
+            mensagem = "❌ Solução viola alguma condição de KKT.\n"
+            print(mensagem)
+            self.resultado_kkt.append(mensagem)
+            return False, self.resultado_kkt

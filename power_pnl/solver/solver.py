@@ -21,7 +21,7 @@ class SymbolicSolver:
     Solver simbólico que integra todas as etapas: montagem, derivadas e resolução.
     """
 
-    def __init__(self, model, passo=0.1, tol=1e-6, max_iter=20,
+    def __init__(self, model, passo=1, tol=1e-9, max_iter=20,
                  x0=None, intervalo_convexidade=None):
         """
         Inicializa o solver com o modelo e parâmetros de controle.
@@ -42,6 +42,7 @@ class SymbolicSolver:
         self.lagrangian = None
         self.gradiente = None
         self.hessiana = None
+        self.tamanho_hessiana = None
         self.variaveis = None
         self.historico = None
 
@@ -54,10 +55,10 @@ class SymbolicSolver:
         """
         self._construir_lagrangeana()
 
-        variaveis_ativas = self.lagrangian.free_symbols
-        print("\n[Debug] Variáveis simbólicas na Lagrangeana:")
-        for v in sorted(variaveis_ativas, key=str):
-            print(f"  - {v}")
+        # variaveis_ativas = self.lagrangian.free_symbols
+        # print("\n[Debug] Variáveis simbólicas na Lagrangeana:")
+        # for v in sorted(variaveis_ativas, key=str):
+        #     print(f"  - {v}")
         print(self.lagrangian)
 
         self._calcular_derivadas()
@@ -83,6 +84,7 @@ class SymbolicSolver:
         deriv = DerivativesCalculator(self.lagrangian, self.model.variables)
         self.gradiente = deriv.gradient("all")
         self.hessiana = deriv.hessian("all")
+        self.tamanho_hessiana = self.hessiana.shape
         self.variaveis = self.model.variables.all_symbols()
 
     def _diagnostico_convexidade(self):
@@ -200,7 +202,6 @@ class SymbolicSolver:
         """
         xk = self._preparar_chute()
 
-        print(self.historico)
         for it in range(self.max_iter):
             grad_eval = sp.Matrix([g.evalf(subs=xk) for g in self.gradiente])
             hess_eval = self.hessiana.evalf(subs=xk)
@@ -218,17 +219,22 @@ class SymbolicSolver:
                             autovalores_numericos.append(float(v_num))
 
                     if not autovalores_numericos:
-                        print("\033[1;91m[Diagnóstico] Não foi possível classificar: autovalores complexos\033[0m")
+                        print("\033[1;91m[Diagnóstico] Não foi possível classificar: "
+                              "autovalores complexos\033[0m")
                     elif all(v > 0 for v in autovalores_numericos):
-                        print("\033[1;91m[Diagnóstico] Ponto ótimo classificado como: MÍNIMO LOCAL\033[0m")
+                        print("\033[1;91m[Diagnóstico] Ponto ótimo classificado como: "
+                              "MÍNIMO LOCAL\033[0m")
                     elif all(v < 0 for v in autovalores_numericos):
-                        print("\033[1;91m[Diagnóstico] Ponto ótimo classificado como: MÁXIMO LOCAL\033[0m")
+                        print("\033[1;91m[Diagnóstico] Ponto ótimo classificado como: "
+                              "MÁXIMO LOCAL\033[0m")
                     else:
-                        print("\033[1;91m[Diagnóstico] Ponto ótimo classificado como: PONTO DE SELA (INDETERMINADO)\033[0m")
+                        print("\033[1;91m[Diagnóstico] Ponto ótimo classificado como: "
+                              "PONTO DE SELA (INDETERMINADO)\033[0m")
 
                 return {
                     "solucao": xk,
-                    "iteracoes": it + 1
+                    "iteracoes": it + 1,
+                    "hessiana": self.tamanho_hessiana
                 }
 
             try:
@@ -243,45 +249,75 @@ class SymbolicSolver:
                 raise ValueError("Hessiana singular ou mal condicionada") from exc
 
             for i, v in enumerate(self.variaveis):
-                xk[v] += delta[i]
+                xk[v] += self.passo * delta[i]
+                if str(v).startswith("pi_"):
+                    xk[v] = max(xk[v], sp.Float("1e-10"))
 
         raise ValueError(f"Método de Newton não convergiu em {it+1} iterações")
 
-    def _resolver_gradiente(self, passo: float | None = None, tol: float | None = None):
-        """
-        Resolve o problema de otimização usando o método do gradiente (descida/subida).
+# ================================================================================== #
 
-        Returns:
-            dict: Dicionário com os valores ótimos das variáveis.
-        """
+# EM DESENVOLVIMENTO
 
-        xk = self._preparar_chute()
-        print("\n[Debug] Variáveis armazenadas em self.variaveis:")
-        for v in sorted(self.variaveis, key=str):
-            print(f"  - {v}")
+    # def _passo_adaptativo(self, xk, delta, alpha_init=1.0, rho=0.8, c=1e-3):
+    #     """
+    #     Busca de passo adaptativa baseada na redução da função objetivo (condição de Armijo).
+    #     """
+    #     alpha = alpha_init
+    #     f_xk = self.model.objective.expr.evalf(subs=xk)
+    #     grad_eval = sp.Matrix([g.evalf(subs=xk) for g in self.gradiente])
+    #     desc_dir = grad_eval.dot(delta)
 
-        alpha = passo if passo is not None else self.passo
-        beta = tol if tol is not None else self.tol
+    #     max_buscas = 20
+    #     buscas = 0
 
-        iteracao = 0
-        historico = []
+    #     while alpha > 1e-6 and buscas < max_buscas:
+    #         x_trial = {v: xk[v] + alpha * delta[i] for i, v in enumerate(self.variaveis)}
+    #         f_trial = self.model.objective.expr.evalf(subs=x_trial)
 
-        while iteracao < self.max_iter:
-            grad = [g.evalf(subs=xk) for g in self.gradiente]
-            erro = max(abs(val) for val in grad)
-            print(erro)
-            historico.append((iteracao, dict(xk), erro))
-            if erro <= beta:
-                break
-            # Atualiza as variáveis (subida ou descida)
-            for i, var in enumerate(self.variaveis):
-                direcao = alpha * grad[i]
-                xk[var] = xk[var] - direcao if self.model.mode == "min" else xk[var] + direcao
-            iteracao += 1
-        self.historico = historico
-        return xk
+    #         if f_trial < f_xk - c * alpha * desc_dir:
+    #             return alpha
 
-    # Ponto de extensão futura para outros métodos
-    def _resolver_nonlinear_custom(self):
-        """Placeholder para outros métodos não lineares (barreira, penalidade, etc)."""
-        raise NotImplementedError("Resolver não linear customizado ainda não implementado")
+    #         alpha *= rho
+    #         buscas += 1
+
+    #     return alpha
+
+    # def _resolver_gradiente(self, passo: float | None = None, tol: float | None = None):
+    #     """
+    #     Resolve o problema de otimização usando o método do gradiente (descida/subida).
+
+    #     Returns:
+    #         dict: Dicionário com os valores ótimos das variáveis.
+    #     """
+
+    #     xk = self._preparar_chute()
+    #     print("\n[Debug] Variáveis armazenadas em self.variaveis:")
+    #     for v in sorted(self.variaveis, key=str):
+    #         print(f"  - {v}")
+
+    #     alpha = passo if passo is not None else self.passo
+    #     beta = tol if tol is not None else self.tol
+
+    #     iteracao = 0
+    #     historico = []
+
+    #     while iteracao < self.max_iter:
+    #         grad = [g.evalf(subs=xk) for g in self.gradiente]
+    #         erro = max(abs(val) for val in grad)
+    #         print(erro)
+    #         historico.append((iteracao, dict(xk), erro))
+    #         if erro <= beta:
+    #             break
+    #         # Atualiza as variáveis (subida ou descida)
+    #         for i, var in enumerate(self.variaveis):
+    #             direcao = alpha * grad[i]
+    #             xk[var] = xk[var] - direcao if self.model.mode == "min" else xk[var] + direcao
+    #         iteracao += 1
+    #     self.historico = historico
+    #     return xk
+
+    # # Ponto de extensão futura para outros métodos
+    # def _resolver_nonlinear_custom(self):
+    #     """Placeholder para outros métodos não lineares (barreira, penalidade, etc)."""
+    #     raise NotImplementedError("Resolver não linear customizado ainda não implementado")

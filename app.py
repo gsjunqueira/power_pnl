@@ -17,6 +17,116 @@ from power_pnl.interface import SymbolicModel, minimizar
 from power_pnl.solver import SymbolicSolver
 
 
+def report(arquivo, kkt, solucao, iteracao, fob, custo_operacional, f_obj, t_hessiana):
+    """
+    Gera um relatório da solução de um problema de otimização, salvando-o em um arquivo de texto
+    e exibindo o mesmo conteúdo no terminal.
+
+    O relatório inclui:
+    - Verificação das condições KKT
+    - Valores das variáveis da solução
+    - Número de iterações do algoritmo
+    - Valor da função objetivo (FOB) cúbica
+    - Custo operacional total
+
+    Parâmetros:
+    ----------
+    arquivo : str
+        Caminho do arquivo de saída (.txt) onde o relatório será salvo.
+    kkt : objeto
+        Objeto que possui o método `verificar_todas()` para checar as condições KKT.
+    solucao : dict
+        Dicionário contendo as variáveis da solução como chaves e suas expressões como valores.
+    iteracao : int
+        Número de iterações realizadas pelo algoritmo de otimização.
+    fob : float
+        Valor da função objetivo cúbica ao final da otimização.
+    custo_operacional : float
+        Custo operacional total calculado com base na solução encontrada.
+    """
+    _, mensage = kkt.verificar_todas()
+    with open(arquivo, "w", encoding="utf-8") as f:
+        f.write('\n#---------------------------------------------------------------------#\n')
+        f.write("Solução:\n\n")
+        f.write(f"Matriz Hessiana possui {t_hessiana}\n")
+        for msg in mensage:
+            f.write(msg + "\n" )
+        for var, val in solucao.items():
+            valor = val.evalf() if hasattr(val, "evalf") else val
+            f.write(f"{var} = {valor}\n")
+        f.write(f"Iterações = {iteracao}\n")
+        f.write(f"\nFOB {f_obj}= {fob:.2f}\n")
+        f.write(f"\nC.O. = {custo_operacional:.2f}\n")
+        f.write('\n#=====================================================================#\n')
+
+    print('\n#---------------------------------------------------------------------#\n')
+    print("Solução:\n")
+    print(mensage[-1])
+    # for var, val in solucao.items():
+    #     print(f"{var} = {val.evalf()}")
+    print(f"Iterações = {iteracao}")
+    print(f"\nFOB {f_obj}= {fob:.2f}")
+    print(f"\nC.O. = {custo_operacional:.2f}")
+    print('\n#=====================================================================#\n')
+
+def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = False):
+    """
+    Resolve um problema de otimização simbólica com base em um sistema fornecido,
+    utilizando um solver iterativo, e gera um relatório da solução encontrada.
+
+    A função realiza os seguintes passos:
+    - Constrói o modelo simbólico a partir do sistema (função objetivo e restrições).
+    - Define uma condição inicial apropriada.
+    - Executa o solver com o passo e número máximo de iterações definidos.
+    - Avalia a solução obtida e calcula métricas como a função objetivo e o custo operacional.
+    - Verifica as condições KKT para garantir a otimalidade.
+    - Gera um relatório da solução, salvando-o em arquivo e exibindo no terminal.
+
+    Parâmetros:
+    ----------
+    sistema : objeto
+        Objeto com estrutura de sistema de potência, contendo atributos como `.power.buses`, etc.
+    arquivo : str
+        Caminho para o arquivo onde o relatório final será salvo.
+    passo : float
+        Valor do passo (tamanho do incremento) utilizado pelo método iterativo do solver.
+    max_iter : int
+        Número máximo de iterações permitidas na resolução do problema.
+    f_obj : str, opcional
+        Tipo da função objetivo a ser usada no modelo ("cubica", "quadratica", etc.).
+        O padrão é "cubica".
+
+    Retorna:
+    -------
+    None
+        O resultado é salvo no arquivo especificado e impresso no terminal;
+        a função não retorna nenhum valor diretamente.
+    """
+    sm = SymbolicModelBuilder(sistema)
+    modelo = SymbolicModel()
+    if single_bus:
+        sm.ativar_barra_unica()
+    modelo.obj = minimizar(sm.fob_cubica() if f_obj == "cubica" else sm.fob_quadratica())
+    modelo.constraints = sm.restricoes()
+    x0_1 = chute_inicial(variables=sm.variaveis(), sistema=sistema)
+
+    solver = SymbolicSolver(modelo, x0=x0_1, passo=passo, max_iter=max_iter)
+    resultado = solver.executar()
+
+    solucao = resultado["solucao"]
+    iters = resultado["iteracoes"]
+    t_hessiana = resultado["hessiana"]
+    solucao_dict = {str(var): val.evalf() if hasattr(val, "evalf") else float(val)
+                    for var, val in resultado["solucao"].items()}
+    fob = sm.get_fob_cubica(solucao) if f_obj == "cubica" else sm.get_fob_quadratica(solucao)
+    custo_operacional = sm.custo_operacional(solucao_dict)
+
+    kkt = KKTChecker(
+        lagrangeana=solver.lagrangian,
+        solucao=resultado["solucao"]
+    )
+    report(arquivo, kkt, solucao, iters, fob, custo_operacional, f_obj, t_hessiana)
+
 def main():
     """
     Ponto de entrada principal do script.
@@ -27,73 +137,31 @@ def main():
 
     caminho_json = "data/base_dados.json"
     caso_1 = "DGER_1"
-    # caso_2 = "DGER_2"
+    caso_2 = "DGER_2"
 
     loader_1 = DataLoader(caminho_json, case=caso_1)
     sistema_1 = loader_1.carregar()
+    loader_2 = DataLoader(caminho_json, case=caso_2)
+    sistema_2 = loader_2.carregar()
 
-    m1 = SymbolicModel()
-    s1 = SymbolicModelBuilder(sistema_1)
-    m1.obj = minimizar(s1.funcao_objetivo())
-    m1.constraints = s1.restricoes()
-    x0_1 = chute_inicial(variables=s1.variaveis(), sistema=sistema_1)
+    arquivo1 = "reports/cubico_rede_dc.txt"
+    arquivo2 = "reports/quadratica_rede_dc.txt"
+    arquivo3 = "reports/cubico_rede_dc_oil.txt"
+    arquivo4 = "reports/quadratica_rede_dc_oil.txt"
+    arquivo5 = "reports/cubico.txt"
+    arquivo6 = "reports/quadratica.txt"
+    arquivo7 = "reports/cubico_oil.txt"
+    arquivo8 = "reports/quadratica_oil.txt"
 
-    solver1 = SymbolicSolver(m1, x0=x0_1, max_iter=2000)
-    resultado1 = solver1.executar()
+    resolucao(arquivo1, sistema_1, passo=1, max_iter=100, f_obj="cubica")
+    resolucao(arquivo2, sistema_1, passo=0.2, max_iter=2000, f_obj="quadratica")
+    resolucao(arquivo3, sistema_2, passo=0.2, max_iter=2000, f_obj="cubica")
+    resolucao(arquivo4, sistema_2, passo=0.8, max_iter=2000, f_obj="quadratica")
 
-    solucao1 = resultado1["solucao"]
-    iters1 = resultado1["iteracoes"]
-    solucao_dict1 = {str(var): val.evalf() if hasattr(val, "evalf") else float(val)
-                    for var, val in resultado1["solucao"].items()}
-    fob1 = s1.get_fob(solucao1)
-    custo_operacional1 = s1.custo_operacional(solucao_dict1)
-
-    kkt = KKTChecker(
-        lagrangeana=solver1.lagrangian,
-        solucao=resultado1["solucao"]
-    )
-
-    print('\n#---------------------------------------------------------------------#\n')
-    print("Solução:\n")
-    kkt.verificar_todas()
-
-    for var, val in solucao1.items():
-        print(f"{var} = {val.evalf()}")
-    print(f"Iterações = {iters1}")
-
-    print(f"\nFOB = {fob1:.2f}")
-    print(f"\nC.O. = {custo_operacional1:.2f}")
-
-    print('\n#=====================================================================#\n')
-
-    # loader_2 = DataLoader(caminho_json, case=caso_2)
-    # sistema_2 = loader_2.carregar()
-
-    # m2 = SymbolicModel()
-    # s2 = SymbolicModelBuilder(sistema_2)
-    # m2.obj = minimizar(s2.funcao_objetivo())
-    # m2.constraints = s2.restricoes()
-    # x0_2 = chute_inicial(variables=s2.variaveis(), sistema=sistema_2)
-
-    # solver2 = SymbolicSolver(m2, x0=x0_2, max_iter=2000)
-    # resultado2 = solver2.executar()
-    # solucao2 = resultado2["solucao"]
-    # iters2 = resultado2["iteracoes"]
-    # solucao_dict2 = {str(var): val.evalf() if hasattr(val, "evalf") else float(val)
-    #                 for var, val in resultado2["solucao"].items()}
-    # fob2 = s2.get_fob(solucao2)
-    # custo_operacional2 = s2.custo_operacional(solucao_dict2)
-
-    # print('\n#---------------------------------------------------------------------#\n')
-    # print("Solução ótima:\n")
-    # for var, val in solucao2.items():
-    #     print(f"{var} = {val.evalf():.4f}")
-    # print(f"Iterações = {iters2}")
-
-    # print(f"\nFOB = {fob2:.2f}")
-    # print(f"\nC.O. = {custo_operacional2:.2f}")
-
-    # print('\n#=====================================================================#\n')
+    resolucao(arquivo5, sistema_1, passo=0.8, max_iter=2000, f_obj="cubica", single_bus=True)
+    resolucao(arquivo6, sistema_1, passo=0.2, max_iter=2000, f_obj="quadratica", single_bus=True)
+    resolucao(arquivo7, sistema_2, passo=0.2, max_iter=2000, f_obj="cubica", single_bus=True)
+    resolucao(arquivo8, sistema_2, passo=0.8, max_iter=2000, f_obj="quadratica", single_bus=True)
 
 if __name__ == "__main__":
     main()
