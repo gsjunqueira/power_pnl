@@ -18,7 +18,7 @@ __author__ = "Giovani Santiago Junqueira"
 import sympy as sp
 from sympy import Eq, Le, Ge
 from electric_models.system import FullSystem
-
+from power_pnl.models import ConstantSet
 
 class SymbolicModelBuilder:
     """
@@ -33,7 +33,7 @@ class SymbolicModelBuilder:
     """
 
     def __init__(self, full_system: FullSystem, slack_id: str = None, barra_unica: bool = False,
-                 tipo: str ="cubica"):
+                 tipo: str ="cubica", method: str = "newton"):
         """
         Inicializa o construtor simbólico do modelo, criando as variáveis.
 
@@ -48,6 +48,8 @@ class SymbolicModelBuilder:
         self.variables = self.variaveis()
         self._modo_barra_unica = barra_unica
         self.tipo = tipo
+        self.method = method
+        self.constants = ConstantSet(include_mi = method == "interior-point")
 
     def variaveis(self) -> dict[str, sp.Symbol]:
         """

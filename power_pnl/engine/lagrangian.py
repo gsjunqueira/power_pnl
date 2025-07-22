@@ -10,7 +10,7 @@ Autor: Giovani Santiago Junqueira
 __author__ = "Giovani Santiago Junqueira"
 
 import sympy as sp
-from power_pnl.models import VariableSet, ConstraintSet, ObjectiveFunction
+from power_pnl.models import VariableSet, ConstantSet, ConstraintSet, ObjectiveFunction
 
 
 class LagrangianBuilder:
@@ -23,6 +23,7 @@ class LagrangianBuilder:
                  objective: ObjectiveFunction,
                  variables: VariableSet,
                  constraints: ConstraintSet,
+                 constants: ConstantSet,
                  mode: str = "min"):
         """
         Inicializa a construção da Lagrangeana.
@@ -37,6 +38,7 @@ class LagrangianBuilder:
         self.vars = variables
         self.constraints = constraints
         self.mode = mode
+        self.constants = constants if constants is not None else ConstantSet(include_mi=False)
         self.l = self._construir_lagrangeana()
 
     def _construir_lagrangeana(self) -> sp.Expr:
@@ -66,6 +68,11 @@ class LagrangianBuilder:
             expr = g - bound - s_k**2
             sinal = -1 if self.mode == "min" else +1
             l += sinal * self.vars.pi_dn[k] * expr
+
+        if self.constants.mi is not None:
+            soma_s = sum(self.vars.s)
+            sinal = -1 if self.mode == "min" else +1
+            l += sinal * self.constants.mi * sp.ln(soma_s)
 
         return l
 

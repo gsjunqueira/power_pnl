@@ -21,8 +21,9 @@ class SymbolicSolver:
     Solver simbólico que integra todas as etapas: montagem, derivadas e resolução.
     """
 
-    def __init__(self, model, passo=1, tol=1e-9, max_iter=20,
-                 x0=None, intervalo_convexidade=None):
+    def __init__(self, model, passo: float =1, tol: float = 1e-10, max_iter: int = 20,
+                 x0=None, mi0: float = None, tol_mi: float = 1e-9, taxa_mi: float = 0.5,
+                 mi_update: str = "fixo", intervalo_convexidade=None):
         """
         Inicializa o solver com o modelo e parâmetros de controle.
 
@@ -38,6 +39,10 @@ class SymbolicSolver:
         self.x0 = x0
         self.intervalo_convexidade = intervalo_convexidade
         self._classificar_localmente = False
+        self._mi_value = mi0
+        self.tol_mi = tol_mi
+        self.taxa_mi = taxa_mi
+        self.mi_update = mi_update
 
         self.lagrangian = None
         self.gradiente = None
@@ -45,6 +50,7 @@ class SymbolicSolver:
         self.tamanho_hessiana = None
         self.variaveis = None
         self.historico = None
+        self._mi_symbol = self.model.constants.mi if self.model.constants else None
 
     def executar(self):
         """
@@ -75,6 +81,7 @@ class SymbolicSolver:
             objective=self.model.objective,
             variables=self.model.variables,
             constraints=self.model.constraints,
+            constants=self.model.constants,
             mode=self.model.mode
         )
         self.lagrangian = builder.get_expression()
@@ -152,7 +159,7 @@ class SymbolicSolver:
             if var not in chute or chute[var] is None:
                 nome = str(var)
                 if nome.startswith("s"):
-                    chute[var] = 0.1
+                    chute[var] = 5
                 elif nome.startswith(("pi_up", "pi_dn")):
                     chute[var] = 0.1
                 elif nome.startswith("lambda"):
@@ -203,14 +210,19 @@ class SymbolicSolver:
         xk = self._preparar_chute()
 
         for it in range(self.max_iter):
-            grad_eval = sp.Matrix([g.evalf(subs=xk) for g in self.gradiente])
-            hess_eval = self.hessiana.evalf(subs=xk)
+            subs_mi = {}
+            if (self.model.constants and hasattr(self.model.constants, "mi") and
+                self.model.constants.mi is not None):
+                if self._mi_value is not None:
+                    subs_mi = {self.model.constants.mi: self._mi_value}
+            grad_eval = sp.Matrix([g.evalf(subs={**xk, **subs_mi}) for g in self.gradiente])
+            hess_eval = self.hessiana.evalf(subs={**xk, **subs_mi})
 
             if grad_eval.norm() < self.tol:
 
                 # Classificação local apenas se necessário
                 if self.model.mode == "auto" and getattr(self, "_classificar_localmente", False):
-                    hess_local = self.hessiana.evalf(subs=xk)
+                    hess_local = self.hessiana.evalf(subs={**xk, **subs_mi})
                     autovalores = hess_local.eigenvals()
                     autovalores_numericos = []
                     for v in autovalores:
@@ -251,9 +263,17 @@ class SymbolicSolver:
             for i, v in enumerate(self.variaveis):
                 xk[v] += self.passo * delta[i]
                 if str(v).startswith("pi_"):
-                    xk[v] = max(xk[v], sp.Float("1e-10"))
+                    xk[v] = max(xk[v], sp.Float("1e-15"))
+
+            if (self.model.constants and self.model.constants.mi is not None and
+                self._mi_value is not None):
+                if self.mi_update == "fixo":
+                    self._mi_value *= self.taxa_mi
+                elif self.mi_update == "fob":
+                    pass
 
         raise ValueError(f"Método de Newton não convergiu em {it+1} iterações")
+
 
 # ================================================================================== #
 

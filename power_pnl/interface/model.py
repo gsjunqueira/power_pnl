@@ -28,7 +28,7 @@ class SymbolicModel:
         self.variables = None
         self.objective = None
         self.constraints = None
-
+        self.constants = None
 
     @property
     def mode(self):
@@ -68,6 +68,21 @@ class SymbolicModel:
             exprs (list): Lista de expressões simbólicas com <=, >=, ==
         """
         self._constraint_exprs = exprs
+
+    @property
+    def constants(self):
+        """Obtém o conjunto de constantes simbólicas."""
+        return self._constants
+
+    @constants.setter
+    def constants(self, consts):
+        """
+        Define o conjunto de constantes simbólicas.
+
+        Args:
+            consts (ConstantSet): Objeto de constantes como mi.
+        """
+        self._constants = consts
 
     def build(self):
         """

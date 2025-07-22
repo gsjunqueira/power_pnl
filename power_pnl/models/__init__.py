@@ -14,11 +14,13 @@ Autor: Giovani Santiago Junqueira
 __author__ = "Giovani Santiago Junqueira"
 
 from .variables import VariableSet
+from .constants import ConstantSet
 from .constraints import ConstraintSet
 from .objective import ObjectiveFunction
 
 __all__ = [
     "VariableSet",
+    "ConstantSet",
     "ConstraintSet",
     "ObjectiveFunction",
 ]

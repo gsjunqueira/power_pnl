@@ -102,7 +102,7 @@ def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = 
         O resultado é salvo no arquivo especificado e impresso no terminal;
         a função não retorna nenhum valor diretamente.
     """
-    sm = SymbolicModelBuilder(sistema, tipo=f_obj)
+    sm = SymbolicModelBuilder(sistema, tipo=f_obj, method="newton")
     modelo = SymbolicModel()
     if single_bus:
         sm.ativar_barra_unica()
@@ -125,6 +125,18 @@ def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = 
         lagrangeana=solver.lagrangian,
         solucao=resultado["solucao"]
     )
+    print()
+    with open("restricoes_geradas.txt", "a", encoding="utf-8") as f:
+        if 'oil' in arquivo:
+            comb = 'oil'
+        else:
+            comb = 'gas'
+
+        f.write(f"\n\nEquações de restrição geradas para função objetiva {f_obj}, "
+                f"com barra única = {single_bus}:\n e geradores 1 e 3 com combustível = {comb}\n")
+        for idx, restr in enumerate(sm.restricoes(), 1):
+            f.write(f"Restrição {idx}: {restr}\n\n")
+
     report(arquivo, kkt, solucao, iters, fob, custo_operacional, f_obj, t_hessiana)
 
 def main():

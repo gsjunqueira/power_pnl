@@ -1,0 +1,240 @@
+
+
+Equações de restrição geradas para função objetiva cubica, com barra única = False:
+ e geradores 1 e 3 com combustível = gas
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: -0.7*theta_B02 <= 0.87
+
+Restrição 8: -0.7*theta_B02 >= -0.87
+
+Restrição 9: -1.0*theta_B03 <= 2.0
+
+Restrição 10: -1.0*theta_B03 >= -2.0
+
+Restrição 11: 0.4*theta_B02 - 0.4*theta_B03 <= 0.2
+
+Restrição 12: 0.4*theta_B02 - 0.4*theta_B03 >= -0.2
+
+Restrição 13: Eq(P_GT01 + 0.7*theta_B02 + 1.0*theta_B03, 0)
+
+Restrição 14: Eq(P_GT02 - 1.1*theta_B02 + 0.4*theta_B03, 0.57)
+
+Restrição 15: Eq(P_GT03 + 0.4*theta_B02 - 1.4*theta_B03, 4.8)
+
+Restrição 16: theta_B02 >= -pi/2
+
+Restrição 17: theta_B02 <= pi/2
+
+Restrição 18: theta_B03 >= -pi/2
+
+Restrição 19: theta_B03 <= pi/2
+
+
+
+Equações de restrição geradas para função objetiva quadratica, com barra única = False:
+ e geradores 1 e 3 com combustível = gas
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: -0.7*theta_B02 <= 0.87
+
+Restrição 8: -0.7*theta_B02 >= -0.87
+
+Restrição 9: -1.0*theta_B03 <= 2.0
+
+Restrição 10: -1.0*theta_B03 >= -2.0
+
+Restrição 11: 0.4*theta_B02 - 0.4*theta_B03 <= 0.2
+
+Restrição 12: 0.4*theta_B02 - 0.4*theta_B03 >= -0.2
+
+Restrição 13: Eq(P_GT01 + 0.7*theta_B02 + 1.0*theta_B03, 0)
+
+Restrição 14: Eq(P_GT02 - 1.1*theta_B02 + 0.4*theta_B03, 0.57)
+
+Restrição 15: Eq(P_GT03 + 0.4*theta_B02 - 1.4*theta_B03, 4.8)
+
+Restrição 16: theta_B02 >= -pi/2
+
+Restrição 17: theta_B02 <= pi/2
+
+Restrição 18: theta_B03 >= -pi/2
+
+Restrição 19: theta_B03 <= pi/2
+
+
+
+Equações de restrição geradas para função objetiva cubica, com barra única = False:
+ e geradores 1 e 3 com combustível = oil
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: -0.7*theta_B02 <= 0.87
+
+Restrição 8: -0.7*theta_B02 >= -0.87
+
+Restrição 9: -1.0*theta_B03 <= 2.0
+
+Restrição 10: -1.0*theta_B03 >= -2.0
+
+Restrição 11: 0.4*theta_B02 - 0.4*theta_B03 <= 0.2
+
+Restrição 12: 0.4*theta_B02 - 0.4*theta_B03 >= -0.2
+
+Restrição 13: Eq(P_GT01 + 0.7*theta_B02 + 1.0*theta_B03, 0)
+
+Restrição 14: Eq(P_GT02 - 1.1*theta_B02 + 0.4*theta_B03, 0.57)
+
+Restrição 15: Eq(P_GT03 + 0.4*theta_B02 - 1.4*theta_B03, 4.8)
+
+Restrição 16: theta_B02 >= -pi/2
+
+Restrição 17: theta_B02 <= pi/2
+
+Restrição 18: theta_B03 >= -pi/2
+
+Restrição 19: theta_B03 <= pi/2
+
+
+
+Equações de restrição geradas para função objetiva quadratica, com barra única = False:
+ e geradores 1 e 3 com combustível = oil
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: -0.7*theta_B02 <= 0.87
+
+Restrição 8: -0.7*theta_B02 >= -0.87
+
+Restrição 9: -1.0*theta_B03 <= 2.0
+
+Restrição 10: -1.0*theta_B03 >= -2.0
+
+Restrição 11: 0.4*theta_B02 - 0.4*theta_B03 <= 0.2
+
+Restrição 12: 0.4*theta_B02 - 0.4*theta_B03 >= -0.2
+
+Restrição 13: Eq(P_GT01 + 0.7*theta_B02 + 1.0*theta_B03, 0)
+
+Restrição 14: Eq(P_GT02 - 1.1*theta_B02 + 0.4*theta_B03, 0.57)
+
+Restrição 15: Eq(P_GT03 + 0.4*theta_B02 - 1.4*theta_B03, 4.8)
+
+Restrição 16: theta_B02 >= -pi/2
+
+Restrição 17: theta_B02 <= pi/2
+
+Restrição 18: theta_B03 >= -pi/2
+
+Restrição 19: theta_B03 <= pi/2
+
+
+
+Equações de restrição geradas para função objetiva cubica, com barra única = True:
+ e geradores 1 e 3 com combustível = gas
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: Eq(P_GT01 + P_GT02 + P_GT03, 5.37)
+
+
+
+Equações de restrição geradas para função objetiva quadratica, com barra única = True:
+ e geradores 1 e 3 com combustível = gas
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: Eq(P_GT01 + P_GT02 + P_GT03, 5.37)
+
+
+
+Equações de restrição geradas para função objetiva cubica, com barra única = True:
+ e geradores 1 e 3 com combustível = oil
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: Eq(P_GT01 + P_GT02 + P_GT03, 5.37)
+
+
+
+Equações de restrição geradas para função objetiva quadratica, com barra única = True:
+ e geradores 1 e 3 com combustível = oil
+Restrição 1: P_GT01 >= 0.0
+
+Restrição 2: P_GT01 <= 2.5
+
+Restrição 3: P_GT02 >= 0.0
+
+Restrição 4: P_GT02 <= 1.57
+
+Restrição 5: P_GT03 >= 0.0
+
+Restrição 6: P_GT03 <= 3.88
+
+Restrição 7: Eq(P_GT01 + P_GT02 + P_GT03, 5.37)
+
