@@ -83,7 +83,8 @@ class DataLoader:
         """Instancia os geradores e associa às barras e plantas (quando hidráulicos)."""
         for g in self.data.get(self.case, []):
             g_data = {**g, "bus": self.mapa_barras[g["bus"]],
-                      "gmin": self._pu(g.get("gmin")), "gmax": self._pu(g.get("gmax"))}
+                      "gmin": self._pu(g.get("gmin")), "gmax": self._pu(g.get("gmax")),
+                      "b": g.get("b")*self.pb, "c": g.get("c")*self.pb**2}
             if g.get("type") == "hydro":
                 g_data["plant"] = self.hydro_plants[g["plant"]]
             self.geradores.append(create_generator(g_data))

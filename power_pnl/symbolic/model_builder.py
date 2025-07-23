@@ -101,7 +101,8 @@ class SymbolicModelBuilder:
         for bus in self.full_system.power.buses:
             for g in getattr(bus, "generators", []):
                 nome_var = f"P_{g.id}"
-                p_val = solucao[nome_var] * pb
+                # p_val = solucao[nome_var] * pb
+                p_val = solucao[nome_var]
                 custo += self._custo_gerador(g, p_val)
 
         return custo
@@ -126,7 +127,8 @@ class SymbolicModelBuilder:
             if var in solucao:
                 nome = str(var)
                 if nome.startswith("P_"):
-                    subs[var] = solucao[var] * pb
+                    # subs[var] = solucao[var] * pb
+                    subs[var] = solucao[var]
                 else:
                     subs[var] = solucao[var]
 
