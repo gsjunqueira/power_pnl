@@ -17,7 +17,7 @@ from power_pnl.interface import SymbolicModel, minimizar
 from power_pnl.solver import SymbolicSolver
 
 
-def report(arquivo, kkt, solucao, iteracao, fob, custo_operacional, f_obj, t_hessiana):
+def report(arquivo, kkt, solucao, iteracao, fob, custo_operacional, f_obj, t_hessiana, custo_cubico):
     """
     Gera um relatório da solução de um problema de otimização, salvando-o em um arquivo de texto
     e exibindo o mesmo conteúdo no terminal.
@@ -56,7 +56,8 @@ def report(arquivo, kkt, solucao, iteracao, fob, custo_operacional, f_obj, t_hes
             f.write(f"{var} = {valor}\n")
         f.write(f"Iterações = {iteracao}\n")
         f.write(f"\nFOB {f_obj}= {fob:.2f}\n")
-        f.write(f"\nC.O. = {custo_operacional:.2f}\n")
+        f.write(f"\nC.O.2 = {custo_operacional:.2f}\n")
+        f.write(f"\nC.O.3 = {custo_cubico:.2f}\n")
         f.write('\n#=====================================================================#\n')
 
     print('\n#---------------------------------------------------------------------#\n')
@@ -66,7 +67,8 @@ def report(arquivo, kkt, solucao, iteracao, fob, custo_operacional, f_obj, t_hes
     #     print(f"{var} = {val.evalf()}")
     print(f"Iterações = {iteracao}")
     print(f"\nFOB {f_obj}= {fob:.2f}")
-    print(f"\nC.O. = {custo_operacional:.2f}")
+    print(f"\nC.O.2 = {custo_operacional:.2f}")
+    print(f"\nC.O.3 = {custo_cubico:.2f}")
     print('\n#=====================================================================#\n')
 
 def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = False):
@@ -120,6 +122,7 @@ def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = 
                     for var, val in resultado["solucao"].items()}
     fob = sm.get_fob(solucao)
     custo_operacional = sm.custo_operacional(solucao_dict)
+    custo_cubico = sm.custo_cubico(solucao)
 
     kkt = KKTChecker(
         lagrangeana=solver.lagrangian,
@@ -137,7 +140,7 @@ def resolucao(arquivo, sistema, passo, max_iter, f_obj = "cubica", single_bus = 
         for idx, restr in enumerate(sm.restricoes(), 1):
             f.write(f"Restrição {idx}: {restr}\n\n")
 
-    report(arquivo, kkt, solucao, iters, fob, custo_operacional, f_obj, t_hessiana)
+    report(arquivo, kkt, solucao, iters, fob, custo_operacional, f_obj, t_hessiana, custo_cubico)
 
 def main():
     """

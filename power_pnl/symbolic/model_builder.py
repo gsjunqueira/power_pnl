@@ -104,8 +104,23 @@ class SymbolicModelBuilder:
                 # p_val = solucao[nome_var] * pb
                 p_val = solucao[nome_var]
                 custo += self._custo_gerador(g, p_val)
-
         return custo
+
+    def custo_cubico(self, solucao: dict[sp.Symbol, float]) -> float:
+        """
+        Calcula o custo marginal total de operação.
+
+        Returns:
+            sp.Expr: Soma dos custos marginais de todos os geradores.
+        """
+        custo_expr = self._custo_cubico()
+        subs = {}
+
+        for var in self.variables.values():
+            if var in solucao:
+                subs[var] = solucao[var] 
+
+        return float(custo_expr.subs(subs).evalf())
 
     def get_fob(self, solucao: dict[sp.Symbol, float]) -> float:
         """
@@ -170,6 +185,26 @@ class SymbolicModelBuilder:
             sp.Expr: Expressão simbólica do custo marginal.
         """
         return g.c * p**2 + g.b * p + g.a
+
+    def _custo_cubico(self) -> sp.Expr:
+        """
+        Gera a expressão simbólica do custo operacional cúbico de todos os geradores.
+        Estilo idêntico ao método fob().
+        """
+
+        custo_total = 0
+
+        for bus in self.full_system.power.buses:
+            for g in getattr(bus, "generators", []):
+                p = self.variables.get(f"P_{g.id}")
+                if p is None:
+                    raise ValueError(f"Variável de geração P_{g.id} não encontrada.")
+
+                custo_marginal = self._custo_gerador(g, p)
+                custo_total += sp.integrate(custo_marginal, p)
+
+        return custo_total
+
 
     def _limite_geracao(self) -> list:
         """
